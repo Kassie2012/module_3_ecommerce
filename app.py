@@ -106,5 +106,40 @@ def get_customers():
     customers = result.all()
     return customers_schema.jsonify(customers)
 
+@app.route("/customers/<int:id>", methods=['GET'])
+def get_customer(id):
+    
+    query = select(Customer).where(Customer.id == id)
+    result = db.session.execute(query).scalars().first() 
+
+    if result is None:
+        return jsonify({"Error": "Customer not found"}), 404
+    
+    return customer_schema.jsonify(result)
+
+##need to do a put and delete route for customers
+
+#=================================== PRODUCTS ===================================
+
+@app.route('/products', methods=['POST'])
+def create_product():
+    try:
+        product_data = product_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+    
+    new_product = Products(product_name=product_data['product_name'], price=product_data['price'])
+    db.session.add(new_product)
+    db.session.commit()
+
+    return jsonify({"Messages": "New Product added!",
+                    "product": product_schema.dump(new_product)}), 201
+
+@app.route("/products", methods=['GET'])
+def get_products():
+    query = select(Products)
+    result = db.session.execute(query).scalars() 
+    products = result.all() 
+    return products_schema.jsonify(products)
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
