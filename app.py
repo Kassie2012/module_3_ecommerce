@@ -83,7 +83,7 @@ orders_schema = OrderSchema(many=True)
 
 #=================================== ROUTES ===================================
 
-@app.route("/customers", methods=["POST"])
+@app.route("/customers", methods=["POST"]) # Create a new customer
 def add_customer():
     
     try:
@@ -98,7 +98,7 @@ def add_customer():
     return jsonify({"Message": "New Customer was added to the DB successfully",
                     "customer": customer_schema.dump(new_customer)}), 201
     
-@app.route("/customers", methods=["GET"])
+@app.route("/customers", methods=["GET"]) # Get all customers
 def get_customers():
     
     query = select(Customer)
@@ -106,7 +106,7 @@ def get_customers():
     customers = result.all()
     return customers_schema.jsonify(customers)
 
-@app.route("/customers/<int:id>", methods=['GET'])
+@app.route("/customers/<int:id>", methods=['GET']) # Get a single customer by ID
 def get_customer(id):
     
     query = select(Customer).where(Customer.id == id)
@@ -117,11 +117,41 @@ def get_customer(id):
     
     return customer_schema.jsonify(result)
 
-##need to do a put and delete route for customers
+##check put and delete for errors
+
+@app.route('/customers/<int:customer_id>', methods=['Put']) ##did i do it? lol Updates a customer
+def update_customers(id):
+    try:
+        new_customer = customer_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+
+    quary = select(Customer).where(Customer.customer_id == id)
+    update_customers = db.session.execute(quary).scalars().first()
+
+    if not update_customers:
+        return jsonify({'Error': 'ID not found'})
+
+    for field, attribute in new_customer.items():
+        setattr(update_customers, field, attribute)
+        #trainer.name = value
+        #trainer.email = value
+
+    db.session.commit()
+    return customer_schema.dumps(update_customers), 200
+
+@app.route('/customers/<int:id>', methods=['DELETE']) # Deletes a customer
+def delete_customers(id):
+    delete_customers = db.session.get(Customer, id)
+    if delete_customers is None:
+        return jsonify({'Error': 'ID not found'}), 404
+    db.session.delete(delete_customers)
+    db.session.commit()
+    return jsonify({'Success': 'Customer deleted'}), 200
 
 #=================================== PRODUCTS ===================================
 
-@app.route('/products', methods=['POST'])
+@app.route('/products', methods=['POST']) # Create a new product
 def create_product():
     try:
         product_data = product_schema.load(request.json)
@@ -135,11 +165,58 @@ def create_product():
     return jsonify({"Messages": "New Product added!",
                     "product": product_schema.dump(new_product)}), 201
 
-@app.route("/products", methods=['GET'])
+@app.route("/products", methods=['GET']) # Get all products
 def get_products():
     query = select(Products)
     result = db.session.execute(query).scalars() 
     products = result.all() 
     return products_schema.jsonify(products)
+
+@app.route("/products /<int:id>", methods=['GET']) # Get a single product by ID
+def get_product(id):
+    
+    query = select(Products).where(Products.id == id)
+    result = db.session.execute(query).scalars().first() 
+
+    if result is None:
+        return jsonify({"Error": "Customer not found"}), 404
+    
+    return product_schema.jsonify(result)
+
+##need to do a put and delete route for products
+
+@app.route('/products/<int:customer_id>', methods=['Put']) ##did i do it? lol Updates a customer
+def update_products(id):
+    try:
+        new_product = product_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+
+    quary = select(Products).where(Products.product_id == id)
+    update_products = db.session.execute(quary).scalars().first()
+
+    if not update_products:
+        return jsonify({'Error': 'ID not found'})
+
+    for field, attribute in new_product.items():
+        setattr(update_products, field, attribute)
+        #trainer.name = value
+        #trainer.email = value
+
+    db.session.commit()
+    return product_schema(update_products), 200
+
+@app.route('/product/<int:id>', methods=['DELETE']) # Deletes a product
+def delete_products(id):
+    delete_products = db.session.get(Products, id)
+    if delete_products is None:
+        return jsonify({'Error': 'ID not found'}), 404
+    db.session.delete(delete_products)
+    db.session.commit()
+    return jsonify({'Success': 'Product deleted'}), 200
+
+#=================================== ORDERS ===================================
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
