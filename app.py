@@ -17,6 +17,15 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(app, model_class=Base)
 ma = Marshmallow(app)
 
+def check_database_connection():
+    try:
+        connection = db.engine.connect()
+        print("Successfully connected to the database.")
+        connection.close() 
+    except Exception as e:
+        print(f"Error connecting to the database: {e}")
+
+
 #======================= MODELS =============================
 
 class Customer(Base):
@@ -26,7 +35,7 @@ class Customer(Base):
     name: Mapped[str] = mapped_column(db.String(225), nullable=False)
     email: Mapped[str] = mapped_column(db.String(225))
     address: Mapped[str] = mapped_column(db.String(225))
-    orders: Mapped[List["Orders"]] = db.relationship(back_populates='customer')
+    orders: Mapped[List["Orders"]] = db.relationship("orders", back_populates='customer')
 
 order_products = db.Table(
     "Order_Products",
@@ -42,7 +51,7 @@ class Orders(Base):
     order_date: Mapped[date] = mapped_column(db.Date, nullable = False)
     customer_id: Mapped[int] = mapped_column(db.ForeignKey('Customer.id'))
     customer: Mapped['Customer'] = db.relationship(back_populates='orders')
-    products: Mapped[List['Products']] = db.relationship(secondary=order_products, back_populates='orders')
+    products: Mapped[List['Products']] = db.relationship("products", secondary=order_products, back_populates='orders')
 
 
 class Products(Base):
@@ -51,10 +60,10 @@ class Products(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     product_name: Mapped[str] = mapped_column(db.String(225), nullable = False)
     price: Mapped[float] = mapped_column(db.Float, nullable = False)
-    orders: Mapped[List['Orders']] = db.relationship(secondary=order_products, back_populates='products')
+    orders: Mapped[List['Orders']] = db.relationship("orders", secondary=order_products, back_populates='products')
     
 with app.app_context():
-    db.create_all()
+    Base.metadata.create_all(db.engine)
     
 
 #================================= SSCHEMAS =====================================
@@ -119,14 +128,14 @@ def get_customer(id):
 
 ##check put and delete for errors
 
-@app.route('/customers/<int:customer_id>', methods=['Put']) ##did i do it? lol Updates a customer
+@app.route('/customers/<int:customer_id>', methods=['PUT']) ##did i do it? lol Updates a customer
 def update_customers(id):
     try:
         new_customer = customer_schema.load(request.json)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    quary = select(Customer).where(Customer.customer_id == id)
+    quary = select(Customer).where(Customer.id == id)
     update_customers = db.session.execute(quary).scalars().first()
 
     if not update_customers:
@@ -134,8 +143,7 @@ def update_customers(id):
 
     for field, attribute in new_customer.items():
         setattr(update_customers, field, attribute)
-        #trainer.name = value
-        #trainer.email = value
+        
 
     db.session.commit()
     return customer_schema.dumps(update_customers), 200
@@ -172,7 +180,7 @@ def get_products():
     products = result.all() 
     return products_schema.jsonify(products)
 
-@app.route("/products /<int:id>", methods=['GET']) # Get a single product by ID
+@app.route("/products/<int:id>", methods=['GET']) # Get a single product by ID
 def get_product(id):
     
     query = select(Products).where(Products.id == id)
@@ -185,14 +193,14 @@ def get_product(id):
 
 ##need to do a put and delete route for products
 
-@app.route('/products/<int:customer_id>', methods=['Put']) ##did i do it? lol Updates a customer
+@app.route('/products/<int:customer_id>', methods=['PUT']) #Updates a customer
 def update_products(id):
     try:
         new_product = product_schema.load(request.json)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
-    quary = select(Products).where(Products.product_id == id)
+    quary = select(Products).where(Products.id == id)
     update_products = db.session.execute(quary).scalars().first()
 
     if not update_products:
@@ -200,13 +208,11 @@ def update_products(id):
 
     for field, attribute in new_product.items():
         setattr(update_products, field, attribute)
-        #trainer.name = value
-        #trainer.email = value
 
     db.session.commit()
     return product_schema(update_products), 200
 
-@app.route('/product/<int:id>', methods=['DELETE']) # Deletes a product
+@app.route('/products/<int:id>', methods=['DELETE']) # Deletes a product
 def delete_products(id):
     delete_products = db.session.get(Products, id)
     if delete_products is None:
@@ -216,6 +222,43 @@ def delete_products(id):
     return jsonify({'Success': 'Product deleted'}), 200
 
 #=================================== ORDERS ===================================
+
+#CREATE an ORDER
+@app.route('/orders', methods=['POST'])
+def add_order():
+    try:
+        order_data = order_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+    
+    customer = db.session.get(Customer, order_data['customer_id'])
+    
+    if customer:
+        new_order = Orders(order_date=order_data['order_date'], customer_id = order_data['customer_id'])
+
+        db.session.add(new_order)
+        db.session.commit()
+
+        return jsonify({"Message": "New Order Placed!",
+                        "order": order_schema.dump(new_order)}), 201
+    else:
+        return jsonify({"message": "Invalid customer id"}), 400
+
+#ADD ITEM TO ORDER
+@app.route('/orders/<int:order_id>/add_product/<int:product_id>', methods=['PUT'])
+def add_product(order_id, product_id):
+    order = db.session.get(Orders, order_id)
+    product = db.session.get(Products, product_id)
+
+    if order and product: 
+        if product not in order.products: 
+            order.products.append(product) 
+            db.session.commit() 
+            return jsonify({"Message": "Successfully added item to order."}), 200
+        else:
+            return jsonify({"Message": "Item is already included in this order."}), 400
+    else:
+        return jsonify({"Message": "Invalid order id or product id."}), 400
 
 
 if __name__ == '__main__':
