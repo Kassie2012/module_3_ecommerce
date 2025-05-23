@@ -1,0 +1,74 @@
+# 🛒 Simple E-Commerce API
+
+This is a basic e-commerce API built with Flask, Flask-SQLAlchemy, and MySQL. It manages Users (Customers), Orders, and Products.
+
+---
+
+## 🔧 Tech Used
+
+* Python
+* Flask
+* MySQL
+
+---
+
+## 📌 Endpoints
+
+### Users (Customers)
+
+* `GET /customers` – Get all users
+* `GET /customers/<id>` – Get one user
+* `POST /customers` – Create a user
+* `PUT /customers/<id>` – Update a user
+* `DELETE /customers/<id>` – Delete a user
+
+### Products
+
+* `GET /products` – Get all products
+* `GET /products/<id>` – Get one product
+* `POST /products` – Create a product
+* `PUT /products/<id>` – Update a product
+* `DELETE /products/<id>` – Delete a product
+
+### Orders
+
+* `POST /orders` – Create an order
+* `PUT /orders/<order_id>/add_product/<product_id>` – Add product to order
+* `DELETE /orders/<order_id>/remove_product/<product_id>` – Remove product from order
+* `GET /orders/user/<user_id>` – All orders for a user
+* `GET /orders/<order_id>/products` – All products in an order
+
+---
+
+## 🗃 Relationships
+
+* One user → many orders
+* Orders ↔ products (many-to-many)
+
+---
+
+## 🛠️ Setup
+
+1. Create a MySQL database: `ecommerce_api`
+2. Set your connection string in the app config
+3. Run:
+
+```bash
+python -m venv venv
+venv\Scripts\activate  # or source venv/bin/activate on Mac/Linux
+pip install -r requirements.txt
+python ecommerce_api.py
+```
+
+---
+
+## ✅ Test
+
+* Use Postman to check all routes
+* Use MySQL Workbench to check your data
+
+---
+
+## 👩‍💻 Made by Kassie Arnold
+
+Coding Temple Student
